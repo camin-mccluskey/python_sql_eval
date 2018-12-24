@@ -1,6 +1,6 @@
 """
 
-file to construct SQL query object and table object
+Query and Table object module
 
 """
 
@@ -26,7 +26,7 @@ class Query:
 
     def run(self):
         """
-        Run query
+        Method to run query
         :return: {'success': True | False, 'JSON': str of query result or error message}
         """
         response = {'success': None, 'JSON': None}
@@ -36,7 +36,7 @@ class Query:
 
             # filter by where clause in query
             whereClauses = self.json['where']
-            modifiedCrossProduct = self.__where(whereClauses)
+            modifiedCrossProduct = self.__where(whereClauses, self.crossProduct)
 
             # select and rename selected columns
             selectStatement = self.json['select']
@@ -64,7 +64,7 @@ class Query:
 
     def __optimiseQuery(self):
         """
-        Function to optimise the query by eliminating redundant cross product work in cases when:
+        Method to optimise the query by eliminating redundant cross product work in cases when:
         1. SELECT and WHERE clauses are not using a column in table.
         2. WHERE clause is evaluating column to literal
         3. TODO: WHERE clause results in row never being needed in output. i.e. clause: a.data > b.data. a.data has row
@@ -173,9 +173,9 @@ class Query:
 
     def __select(self, data, selectStatement):
         """
-        Function which evaluates the selectStatment on data and returns the result
-        :param data: input data matrix
-        :param selectStatement: iterator of SELECT clauses in sql.json files
+        Method which evaluates the selectStatment on data and returns the result
+        :param data: input DataFrame
+        :param selectStatement: iterable of SELECT clauses in sql.json files
         :return: data with SELECT clauses applied
         """
         # note that the table reference may be None - infer the table in this case
@@ -200,13 +200,13 @@ class Query:
         # isolate selected columns
         return data[selectedColumns]
 
-    def __where(self, whereClauses):
+    def __where(self, whereClauses, data):
         """
-        Function to take full cross product matrix and apply where clauses
-        :param whereClauses: iterator of WHERE clauses in sql.json files
+        Method which applies where clauses to DataFrame
+        :param data: input DataFrame
+        :param whereClauses: iterable of WHERE clauses in sql.json files
         :return: data with WHERE clauses applied
         """
-        data = self.crossProduct
         for clause in whereClauses:
                 # clause operator -  op: "=" | "!=" | ">" | ">=" | "<" | "<="
                 op = clause['op']
@@ -219,7 +219,7 @@ class Query:
 
     def __genColName(self, clause):
         """
-        helper function to deal with null table reference in WHERE statement
+        Helper function to deal with null table reference in WHERE statement
         :param clause: {"column" {"name": str, "table": str | null}}
         :return: column name of column in cross product.
         """
@@ -231,7 +231,7 @@ class Query:
 
     def noErrors(self):
         """
-        Function to check query for errors in SELECT and WHERE statements
+        Method to check query for errors in SELECT and WHERE statements
         :return: Tuple: (Boolean of query validity, error message | None)
         """
         # check SELECT statement clauses are valid
@@ -295,7 +295,7 @@ class Query:
 
     def __constructTables(self):
         """
-        Function to create hashmap of {table alias : Table object} for all tables in query
+        Method to create hashmap of {table alias : Table object} for all tables in query
         :return: hashmap {table alias : Table object}
         """
         tables = {}
@@ -317,7 +317,7 @@ class Query:
 
     def __constructCrossPoduct(self):
         """
-        Function to construct cross product of all tables in query and bind to self.crossProduct
+        Method to construct cross product of all tables in query and bind to self.crossProduct
         :return: None
         """
         # if there is 1 table, cross product is just itself
@@ -359,7 +359,7 @@ class Table:
 
     def deleteCol(self, column):
         """
-        Method to delete column at column label = column
+        Method to delete column at column label == column
         :param column: str of column label
         :return: None
         """

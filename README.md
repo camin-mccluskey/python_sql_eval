@@ -1,6 +1,6 @@
-# python_sql_eval
+# Python SQL Evaluator
 
-> Program to evaluate and run SQL queries using Python.
+> Command line program to evaluate and run SQL queries using Python.
 
 To run program from command line: ```$ python3 sqlEval.py <table-folder> <sql-json-file> <output-file> ``` </br>
 To run program against all test cases: ```$ ./check python3 sqlEval.py -- examples examples/*.sql``` </br>

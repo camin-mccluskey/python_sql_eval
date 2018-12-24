@@ -1,7 +1,6 @@
 """
 File to run JSON SQL queries
 """
-# expect input of form $ YOUR-PROGRAM <table-folder> <sql-json-file> <output-file>
 
 import sys
 import json
