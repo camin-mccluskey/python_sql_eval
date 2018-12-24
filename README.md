@@ -1,13 +1,12 @@
 # python_sql_eval
 
-> Program to evaluate and run SQL queries.
+> Program to evaluate and run SQL queries using Python.
 
-To run program from command line: ```$ ./check python3 sqlEval.py <table-folder> <sql-json-file> <output-file> ```
-To run program against all test cases ```$ ./check python3 sqlEval.py -- examples examples/*.sql```
+To run program from command line: ```$ python3 sqlEval.py <table-folder> <sql-json-file> <output-file> ``` </br>
+To run program against all test cases ```$ ./check python3 sqlEval.py -- examples examples/*.sql``` </br>
 To see an overview of the module: ```$ pydoc sqlEval```
 
 ### Explanation of code
-
 * Command line args are parsed by sqlEval. Query object is initialised with the location of the tables folder and the
 .sql.json file of the query to be executed.
 * The Query object constructs Table objects for the relevant tables. Using the contents of each table and the query JSON
@@ -29,4 +28,3 @@ an error check is conducted. A boolean success variable is returned, with an err
  [ ] Benchmark performance of query optimisation on larger tables
  [ ] Build a more user friendly CLI using [Click](https://click.palletsprojects.com/en/7.x/) or equivalent
  [ ] Ensure JSON queries are properly formatted
- [ ]
