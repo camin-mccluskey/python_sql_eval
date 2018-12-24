@@ -21,9 +21,10 @@ an error check is conducted. A boolean success variable is returned, with an err
 * Write result of query execution to output file.
 
 ## Todo
-- [ ] Implement an optimisation to remove WHERE clauses which result in row never being needed in output. E.g. clause: a.data > b.data. a.data has row
-      < all rows in b.data, in this case a.data at that row can be removed from table a. Only useful where it is likely avoiding cross product work for removed
-      rows will justify calculating the column wise maximum for every column in every table.
+- [ ] Implement an optimisation to remove WHERE clauses which result in row never being needed in output.
+      - E.g. clause: a.data > b.data. a.data has row < all rows in b.data, in this case a.data at that row can be removed from table a.
+      - Only useful where it is likely avoiding cross product work for removed
+        rows will justify calculating the column wise maximum for every column in every table.
 - [ ] Refactor Table object - making WHERE and SELECT methods.
 - [ ] Refactor to make cross product a Table object to take advantage of WHERE and SELECT methods.
 - [ ] Benchmark performance of query optimisation on larger tables.
