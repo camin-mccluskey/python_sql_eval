@@ -5,7 +5,7 @@ File to run JSON SQL queries
 
 import sys
 import json
-from queryObjects import Query
+from Query import Query
 import time
 
 def main():
