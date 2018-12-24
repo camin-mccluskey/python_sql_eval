@@ -14,7 +14,7 @@ an error check is conducted. A boolean success variable is returned, with an err
 * If the query is valid, it is optimised to avoid redundant cross product work by eliminating the following:
     1. Columns which are not needed for any SELECT or WHERE clauses.
     2. WHERE clauses which are evaluating a column to literal.
-    3. WHERE clauses which result in row never being needed in output. i.e. clause: a.data > b.data. a.data has rows
+    3. WHERE clauses which result in row never being needed in output. E.g. clause: a.data > b.data. a.data has rows
     <= all rows in b.data, in this case a.data at that row can be removed from table a.
 * Generate the cross product of all remaining rows in tables
 * Evaluate remaining WHERE clauses on cross product table, generate reduced table.
@@ -23,8 +23,8 @@ an error check is conducted. A boolean success variable is returned, with an err
 * Write result of query execution to output file
 
 ## Todo
- [ ] Refactor Table object - making WHERE and SELECT methods
- [ ] Refactor to make cross product a Table object to take advantage of WHERE and SELECT methods
- [ ] Benchmark performance of query optimisation on larger tables
- [ ] Build a more user friendly CLI using [Click](https://click.palletsprojects.com/en/7.x/) or equivalent
- [ ] Ensure JSON queries are properly formatted
+-[ ] Refactor Table object - making WHERE and SELECT methods
+-[ ] Refactor to make cross product a Table object to take advantage of WHERE and SELECT methods
+-[ ] Benchmark performance of query optimisation on larger tables
+-[ ] Build a more user friendly CLI using [Click](https://click.palletsprojects.com/en/7.x/) or equivalent
+-[ ] Ensure JSON queries are properly formatted
