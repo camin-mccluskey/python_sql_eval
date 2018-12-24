@@ -24,6 +24,49 @@ class Query:
         if self.passedErrorCheck:
             self.__optimiseQuery()
 
+    def noErrors(self):
+        """
+        Method to check query for errors in SELECT and WHERE statements
+        :return: Tuple: (Boolean of query validity, error message | None)
+        """
+        # check SELECT statement clauses are valid
+        for selectStatement in self.json['select']:
+            selectedTable = selectStatement['column']['table']
+            selectedCol = selectStatement['column']['name']
+            if selectedTable:
+                # check selected table exists
+                if selectedTable not in self.tables:
+                    return False, 'ERROR: Unknown table name "{}".'.format(selectedTable)
+                # check selected name exists in given table
+                if selectedCol not in self.tables[selectedTable].dataTypes:
+                    return False, 'ERROR: Unknown column "{}" in table "{}".'.format(selectedCol, selectedTable)
+            # no table reference provided
+            else:
+                # check that selected column exists in just one table
+                foundInTable = []
+                for table in self.tables.values():
+                    if selectedCol in table.dataTypes:
+                        # column found in this table
+                        foundInTable.append(table.alias)
+                if len(foundInTable) < 1:
+                    return False, 'ERROR: Unknown column "{}".'.format(selectedCol)
+                elif len(foundInTable) > 1:
+                    return False, \
+                           'ERROR: Column reference "{}" is ambiguous; present in multiple tables: "{}", "{}".'\
+                               .format(selectedCol, foundInTable[0], foundInTable[1])
+
+        # check WHERE clause for comparison operator use on incompatible data types
+        for whereClause in self.json['where']:
+            op = whereClause['op']
+            left = whereClause['left']
+            right = whereClause['right']
+            leftDType = self.__getDType(left)
+            rightDType = self.__getDType(right)
+            if leftDType != rightDType:
+                return False, 'ERROR: Incompatible types to "{}": {} and {}.'.format(op, leftDType, rightDType)
+
+        return True, None
+
     def run(self):
         """
         Method to run query
@@ -67,21 +110,25 @@ class Query:
         Method to optimise the query by eliminating redundant cross product work in cases when:
         1. SELECT and WHERE clauses are not using a column in table.
         2. WHERE clause is evaluating column to literal
-        3. TODO: WHERE clause results in row never being needed in output. i.e. clause: a.data > b.data. a.data has row
-            < all rows in b.data, in this case a.data at that row can be removed from table a.
 
         WHERE clauses evaluated in this method are removed from .json['where'] to avoid them being considered in .run().
         Columns not needed to execute the query are removed from their respective tables.
         :return: None
         """
-        # ---- 1. SELECT and WHERE clauses are not using a column in table. ----- #
-        # generate set of columns needed for the WHERE and SELECT queries
+        # ---- 1a. SELECT and WHERE clauses are not using a column in table. ----- #
+        # generate set of columns needed for the SELECT queries
         requiredCols = set()
         # add select statements in query
         for statement in self.json['select']:
             requiredCols.add(statement['column']['name'])
-        # add where clauses in query
-        for clause in self.json['where']:
+
+        # ---- 2a. WHERE clause is evaluating column to literal ---- #
+        redundant = set()
+        for i in range(len(self.json['where'])):
+            clause = self.json['where'][i]
+            op = clause['op']
+
+            # 1b. Add column references required in WHERE clause
             left = clause['left']
             right = clause['right']
             if 'column' in left:
@@ -89,46 +136,8 @@ class Query:
             if 'column' in right:
                 requiredCols.add(clause['right']['column']['name'])
 
-        # delete columns that are not necessary for SELECT or WHERE statements
-        for table in self.tables.values():
-            toDelete = set()
-            for colLabel in table.dataTypes.keys():
-                    if colLabel not in requiredCols:
-                        toDelete.add(colLabel)
-            # delete columns
-            for colLabel in toDelete:
-                table.deleteCol(colLabel)
-
-        # ---- 2. WHERE clause is evaluating column to literal ---- #
-        redundant = set()
-        for i in range(len(self.json['where'])):
-            clause = self.json['where'][i]
-            op = clause['op']
-            # left is literal
-            if 'literal' in clause['left']:
-                tableName = clause['right']['column']['table']
-                rightCol = clause['right']['column']['name']
-                # right table is known
-                # TODO - tidy this method up
-                if tableName:
-                    table = self.tables[tableName]
-                    # find col index of column reference in table
-                    colIndex = table.labels.index(table.alias+'.'+rightCol)
-                    # keep rows where literal evaluated with operator on rightCol is true
-                    table.data = table.data[table.data[colIndex].map(lambda x: self.__opMap(op, clause['left']['literal'], x))]
-                # right table is not known
-                else:
-                    for table in self.tables.values():
-                        if rightCol in table.dataTypes:
-                            table = self.tables[table.alias]
-                            # find col index of column reference in table
-                            colIndex = table.labels.index(table.alias+'.'+rightCol)
-                            # keep rows where literal evaluated with operator on rightCol is true
-                            table.data = table.data[table.data[colIndex].map(lambda x: self.__opMap(op, clause['left']['literal'], x))]
-                # remove WHERE clause
-                redundant.add(i)
             # right is literal
-            elif 'literal' in clause['right']:
+            if 'literal' in clause['right']:
                 tableName = clause['left']['column']['table']
                 leftCol = clause['left']['column']['name']
                 # left table is known
@@ -138,6 +147,7 @@ class Query:
                     colIndex = table.labels.index(table.alias+'.'+leftCol)
                     # keep rows where leftCol evaluated with operator on literal is true
                     table.data = table.data[table.data[colIndex].map(lambda x: self.__opMap(op, x, clause['right']['literal']))]
+                # left table is not known
                 else:
                     for table in self.tables.values():
                         if leftCol in table.dataTypes:
@@ -148,8 +158,20 @@ class Query:
                             table.data = table.data[table.data[colIndex].map(lambda x: self.__opMap(op, x, clause['right']['literal']))]
                 # remove WHERE clause
                 redundant.add(i)
-        # remove redundant where clauses
+
+        # 1c. Delete columns that are not necessary for SELECT or WHERE statements
+        for table in self.tables.values():
+            toDelete = set()
+            for colLabel in table.dataTypes.keys():
+                if colLabel not in requiredCols:
+                    toDelete.add(colLabel)
+            # delete columns
+            for colLabel in toDelete:
+                table.deleteCol(colLabel)
+
+        # 2b. Remove redundant where clauses
         self.json['where'] = [clause for clause in self.json['where'] if self.json['where'].index(clause) not in redundant]
+
 
 
     def __opMap(self, op, left, right):
@@ -229,49 +251,6 @@ class Query:
             # use string matching to find column name
             return self.crossProduct.filter(like=clause['column']['name']).columns[0]
 
-    def noErrors(self):
-        """
-        Method to check query for errors in SELECT and WHERE statements
-        :return: Tuple: (Boolean of query validity, error message | None)
-        """
-        # check SELECT statement clauses are valid
-        for selectStatement in self.json['select']:
-            selectedTable = selectStatement['column']['table']
-            selectedCol = selectStatement['column']['name']
-            if selectedTable:
-                # check selected table exists
-                if selectedTable not in self.tables:
-                    return False, 'ERROR: Unknown table name "{}".'.format(selectedTable)
-                # check selected name exists in given table
-                if selectedCol not in self.tables[selectedTable].dataTypes:
-                    return False, 'ERROR: Unknown column "{}" in table "{}".'.format(selectedCol, selectedTable)
-            # no table reference provided
-            else:
-                # check that selected column exists in just one table
-                foundInTable = []
-                for table in self.tables.values():
-                    if selectedCol in table.dataTypes:
-                        # column found in this table
-                        foundInTable.append(table.alias)
-                if len(foundInTable) < 1:
-                    return False, 'ERROR: Unknown column "{}".'.format(selectedCol)
-                elif len(foundInTable) > 1:
-                    return False, \
-                           'ERROR: Column reference "{}" is ambiguous; present in multiple tables: "{}", "{}".'\
-                               .format(selectedCol, foundInTable[0], foundInTable[1])
-
-        # check WHERE clause for comparison operator use on incompatible data types
-        for whereClause in self.json['where']:
-            op = whereClause['op']
-            left = whereClause['left']
-            right = whereClause['right']
-            leftDType = self.__getDType(left)
-            rightDType = self.__getDType(right)
-            if leftDType != rightDType:
-                return False, 'ERROR: Incompatible types to "{}": {} and {}.'.format(op, leftDType, rightDType)
-
-        return True, None
-
     def __getDType(self, dataRef):
         """
         Helper function to fetch data type for column in table
@@ -314,7 +293,6 @@ class Query:
 
         return tables
 
-
     def __constructCrossPoduct(self):
         """
         Method to construct cross product of all tables in query and bind to self.crossProduct
@@ -342,6 +320,7 @@ class Query:
 
             self.crossProduct = result
 
+
 class Table:
     def __init__(self, tableJSON, alias):
         dataTypes = {}
@@ -356,6 +335,21 @@ class Table:
         self.dataTypes = dataTypes
         self.data = pd.DataFrame(tableJSON[1:])
         self.alias = alias
+        # self.colMaxMins = self.___colMaxMin()
+
+    def ___colMaxMin(self):
+        """
+        Helper function to calculate and store column wise maximum and minimum values
+        :return: Hashmap {colLabel: (max, min)
+        """
+        mapping = {}
+        for colIndex in range(len(self.labels)):
+            colData = self.data[:][colIndex]
+            colMax = max(colData)
+            colMin = min(colData)
+            mapping[self.labels[colIndex]] = (colMax, colMin)
+
+        return mapping
 
     def deleteCol(self, column):
         """

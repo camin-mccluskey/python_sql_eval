@@ -5,7 +5,7 @@ File to run JSON SQL queries
 import sys
 import json
 from Query import Query
-import time
+
 
 def main():
     """
@@ -27,6 +27,7 @@ def main():
 
     # write result to output pile
     writeToFile(result, outputFile)
+
 
 def writeToFile(result, outputFile):
     """
@@ -61,7 +62,4 @@ def writeToFile(result, outputFile):
 
 
 if __name__ == '__main__':
-    start = time.time()
     main()
-    end = time.time()
-    print("total time = ", end-start)
