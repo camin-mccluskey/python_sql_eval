@@ -65,8 +65,9 @@ class Query:
     def __optimiseQuery(self):
         """
         Function to optimise the query by eliminating redundant cross product work in cases where WHERE clause is
-        evaluating column to literal and where SELECT and WHERE clauses are not using a column in table. These
-        conditions are then marked as redundant to avoid evaluation in .run().
+        evaluating column to literal and where SELECT and WHERE clauses are not using a column in table. Redundant WHERE
+        clauses are removed from sqljson to avoid them being considered in .run(). Columns not needed to execute the
+        query are removed from there respective tables.
         :return: None
         """
         # generate set of columns needed for the WHERE and SELECT queries
@@ -83,7 +84,7 @@ class Query:
             if 'column' in right:
                 requiredCols.add(clause['right']['column']['name'])
 
-        # delete columns that are not necessary for SELECT or WHERE statments
+        # delete columns that are not necessary for SELECT or WHERE statements
         for table in self.tables.values():
             toDelete = set()
             for colLabel in table.dataTypes.keys():
@@ -93,8 +94,8 @@ class Query:
             for colLabel in toDelete:
                 table.deleteCol(colLabel)
 
-
         # Optimise WHERE
+        redundant = set()
         for i in range(len(self.json['where'])):
             clause = self.json['where'][i]
             op = clause['op']
@@ -118,8 +119,8 @@ class Query:
                             colIndex = table.labels.index(table.alias+'.'+rightCol)
                             # keep rows where literal evaluated with operator on rightCol is true
                             table.data = table.data[table.data[colIndex].map(lambda x: self.__opMap(op, clause['left']['literal'], x))]
-                # flag clause as redundant
-                self.json['where'][i]['redundant'] = True
+                # remove WHERE clause
+                redundant.add(i)
             # right is literal
             elif 'literal' in clause['right']:
                 tableName = clause['left']['column']['table']
@@ -139,8 +140,10 @@ class Query:
                             colIndex = table.labels.index(table.alias+'.'+leftCol)
                             # keep rows where literal evaluated with operator on rightCol is true
                             table.data = table.data[table.data[colIndex].map(lambda x: self.__opMap(op, x, clause['right']['literal']))]
-                # flag clause as redundant
-                self.json['where'][i]['redundant'] = True
+                # remove WHERE clause
+                redundant.add(i)
+        # remove redundant where clauses
+        self.json['where'] = [clause for clause in self.json['where'] if self.json['where'].index(clause) not in redundant]
 
     def __opMap(self, op, left, right):
         """
@@ -199,37 +202,12 @@ class Query:
         """
         data = self.crossProduct
         for clause in whereClauses:
-            # TODO - REMOVE REDUNDANT IF WE USE POP WHERE CLAUSES
-            if 'redundant' not in clause:
                 # clause operator -  op: "=" | "!=" | ">" | ">=" | "<" | "<="
                 op = clause['op']
-                # left and right will always be column references - as literal expressions have been evaluated
+                # left and right will always be column references - as literal expressions have been pre-evaluated
                 leftColumnName = self.__genColName(clause['left'])
                 rightColumnName = self.__genColName(clause['right'])
                 data = data[self.__opMap(op, data[leftColumnName], data[rightColumnName])]
-
-
-                # if 'column' in left:
-                #     leftColumnName = self.__genColName(left)
-                #     # Option 1: (left col ref, right col ref)
-                #     if 'column' in right:
-                #         rightColumnName = self.__genColName(right)
-                #         data = data[self.__opMap(op, data[leftColumnName], data[rightColumnName])]
-                #     # Option 2: (left col ref, right literal)
-                #     else:
-                #         print("literal")
-                #         data = data[data[leftColumnName].map(lambda x: self.__opMap(op, x, right['literal']))]
-                # else:
-                #     rightColumnName = self.__genColName(right)
-                #     # Option 3: (left literal, right col ref)
-                #     if 'column' in right:
-                #         print("literal")
-                #         leftColumnName = self.__genColName(left)
-                #         data = data[self.__opMap(op, data[leftColumnName], data[rightColumnName])]
-                #     # Option 4: (left literal, right literal)
-                #     else:
-                #         print("literal")
-                #         data = data[data[rightColumnName].map(lambda x: self.__opMap(op, x, left['literal']))]
 
         return data
 
