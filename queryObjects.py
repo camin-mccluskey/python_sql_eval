@@ -27,7 +27,7 @@ class Query:
     def run(self):
         """
         Run query
-        :return: object with query status and result if query is valid
+        :return: {'success': True | False, 'JSON': str of query result or error message}
         """
         response = {'success': None, 'JSON': None}
         if self.passedErrorCheck:
@@ -64,12 +64,17 @@ class Query:
 
     def __optimiseQuery(self):
         """
-        Function to optimise the query by eliminating redundant cross product work in cases where WHERE clause is
-        evaluating column to literal and where SELECT and WHERE clauses are not using a column in table. Redundant WHERE
-        clauses are removed from sqljson to avoid them being considered in .run(). Columns not needed to execute the
-        query are removed from there respective tables.
+        Function to optimise the query by eliminating redundant cross product work in cases when:
+        1. SELECT and WHERE clauses are not using a column in table.
+        2. WHERE clause is evaluating column to literal
+        3. TODO: WHERE clause results in row never being needed in output. i.e. clause: a.data > b.data. a.data has row
+            < all rows in b.data, in this case a.data at that row can be removed from table a.
+
+        WHERE clauses evaluated in this method are removed from .json['where'] to avoid them being considered in .run().
+        Columns not needed to execute the query are removed from their respective tables.
         :return: None
         """
+        # ---- 1. SELECT and WHERE clauses are not using a column in table. ----- #
         # generate set of columns needed for the WHERE and SELECT queries
         requiredCols = set()
         # add select statements in query
@@ -94,7 +99,7 @@ class Query:
             for colLabel in toDelete:
                 table.deleteCol(colLabel)
 
-        # Optimise WHERE
+        # ---- 2. WHERE clause is evaluating column to literal ---- #
         redundant = set()
         for i in range(len(self.json['where'])):
             clause = self.json['where'][i]
@@ -104,6 +109,7 @@ class Query:
                 tableName = clause['right']['column']['table']
                 rightCol = clause['right']['column']['name']
                 # right table is known
+                # TODO - tidy this method up
                 if tableName:
                     table = self.tables[tableName]
                     # find col index of column reference in table
@@ -145,9 +151,10 @@ class Query:
         # remove redundant where clauses
         self.json['where'] = [clause for clause in self.json['where'] if self.json['where'].index(clause) not in redundant]
 
+
     def __opMap(self, op, left, right):
         """
-        Helper function evaluate left op right, given a string represtation of each
+        Helper function evaluate left op right, given a string representation of each
         :param op: string representation of the logical operator
         :param left: value on left of operator
         :param right: value on right of operator
@@ -166,10 +173,10 @@ class Query:
 
     def __select(self, data, selectStatement):
         """
-
-        :param data:
-        :param selectStatement:
-        :return:
+        Function which evaluates the selectStatment on data and returns the result
+        :param data: input data matrix
+        :param selectStatement: iterator of SELECT clauses in sql.json files
+        :return: data with SELECT clauses applied
         """
         # note that the table reference may be None - infer the table in this case
         selectedColumns = []
@@ -196,9 +203,8 @@ class Query:
     def __where(self, whereClauses):
         """
         Function to take full cross product matrix and apply where clauses
-        :param data:
-        :param whereClauses:
-        :return:
+        :param whereClauses: iterator of WHERE clauses in sql.json files
+        :return: data with WHERE clauses applied
         """
         data = self.crossProduct
         for clause in whereClauses:
@@ -214,8 +220,8 @@ class Query:
     def __genColName(self, clause):
         """
         helper function to deal with null table reference in WHERE statement
-        :param statement:
-        :return:
+        :param clause: {"column" {"name": str, "table": str | null}}
+        :return: column name of column in cross product.
         """
         if clause['column']['table']:
             return clause['column']['table'] + '.' + clause['column']['name']
@@ -237,14 +243,14 @@ class Query:
                 if selectedTable not in self.tables:
                     return False, 'ERROR: Unknown table name "{}".'.format(selectedTable)
                 # check selected name exists in given table
-                if selectedTable+'.'+selectedCol not in self.tables[selectedTable].labels:
+                if selectedCol not in self.tables[selectedTable].dataTypes:
                     return False, 'ERROR: Unknown column "{}" in table "{}".'.format(selectedCol, selectedTable)
             # no table reference provided
             else:
                 # check that selected column exists in just one table
                 foundInTable = []
                 for table in self.tables.values():
-                    if selectedCol in table.dataTypes.keys():
+                    if selectedCol in table.dataTypes:
                         # column found in this table
                         foundInTable.append(table.alias)
                 if len(foundInTable) < 1:

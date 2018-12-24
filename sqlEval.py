@@ -32,7 +32,7 @@ def parse():
 def writeToFile(result, outputFile):
     """
     Helper function to write result of query run to file
-    :param result: result of Query.run() {'success': True | False, 'JSON': str}
+    :param result: result of Query.run() -> {'success': True | False, 'JSON': str of query result or error message}
     :param outputFile: filepath of output file - created if none exist
     :return: None
     """
