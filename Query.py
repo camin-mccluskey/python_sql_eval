@@ -195,9 +195,9 @@ class Query:
 
     def __select(self, data, selectStatement):
         """
-        Method which evaluates the selectStatment on data and returns the result
+        Method which evaluates the selectStatment on DataFrame and returns the result
         :param data: input DataFrame
-        :param selectStatement: iterable of SELECT clauses in sql.json files
+        :param selectStatement: iterable of SELECT clauses
         :return: data with SELECT clauses applied
         """
         # note that the table reference may be None - infer the table in this case
@@ -226,7 +226,7 @@ class Query:
         """
         Method which applies where clauses to DataFrame
         :param data: input DataFrame
-        :param whereClauses: iterable of WHERE clauses in sql.json files
+        :param whereClauses: iterable of WHERE clauses
         :return: data with WHERE clauses applied
         """
         for clause in whereClauses:
@@ -306,10 +306,8 @@ class Query:
             self.crossProduct = table.data
         else:
             # calculate cross product of all tables
-            tableData  = [table.data for table in self.tables.values()]
-            result = reduce(lambda left, right: pd.merge(left.assign(key=1),
-                                                         right.assign(key=1), on='key'),
-                            tableData)
+            tableData = [table.data for table in self.tables.values()]
+            result = reduce(lambda left, right: pd.merge(left.assign(key=1), right.assign(key=1), on='key'), tableData)
             # add column labels
             result = result.drop('key', 1)
             labels = []
@@ -335,21 +333,6 @@ class Table:
         self.dataTypes = dataTypes
         self.data = pd.DataFrame(tableJSON[1:])
         self.alias = alias
-        # self.colMaxMins = self.___colMaxMin()
-
-    def ___colMaxMin(self):
-        """
-        Helper function to calculate and store column wise maximum and minimum values
-        :return: Hashmap {colLabel: (max, min)
-        """
-        mapping = {}
-        for colIndex in range(len(self.labels)):
-            colData = self.data[:][colIndex]
-            colMax = max(colData)
-            colMin = min(colData)
-            mapping[self.labels[colIndex]] = (colMax, colMin)
-
-        return mapping
 
     def deleteCol(self, column):
         """
