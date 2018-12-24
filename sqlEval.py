@@ -8,7 +8,7 @@ import json
 from queryObjects import Query
 import time
 
-def parse():
+def main():
     """
     Function to parse command line input of form '$ sqlEval.py <table-folder> <sql-json-file> <output-file>' and write
     result of query to output file
@@ -63,6 +63,6 @@ def writeToFile(result, outputFile):
 
 if __name__ == '__main__':
     start = time.time()
-    parse()
+    main()
     end = time.time()
     print("total time = ", end-start)
