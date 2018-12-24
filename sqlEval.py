@@ -32,7 +32,7 @@ def parse():
 def writeToFile(result, outputFile):
     """
     Helper function to write result of query run to file
-    :param result: result of Query.run() -> {'success': True | False, 'JSON': str of query result or error message}
+    :param result: result of Query.run() -> {'success': True | False, 'JSON': list of query result or str error message}
     :param outputFile: filepath of output file - created if none exist
     :return: None
     """
@@ -55,10 +55,11 @@ def writeToFile(result, outputFile):
         file.write('\n')
         file.write(']')
     else:
-        file.write(result['JSON'])
+        file.write(str(result['JSON']))
 
     file.write('\n')
     file.close()
+
 
 if __name__ == '__main__':
     start = time.time()
